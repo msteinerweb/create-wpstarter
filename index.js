@@ -48,6 +48,7 @@ function shell(cmd, cwd) {
     execSync(cmd, { stdio: 'ignore', cwd: cwd });
 }
 
+
 let storedConfig = {
     dbUser: '',
     dbPass: '',
@@ -178,6 +179,7 @@ async function configureProject() {
         console.log('\n🚀 ' + chalk.cyanBright('Setting up your WordPress project...'));
         console.log(chalk.cyanBright('\nThis may take just a few minutes. Please wait...\n'));
 
+        // clone the repository
         const spinnerClone = ora('Cloning the repository...').start();
         try {
             shell(`git clone ${REPO_URL} ${CLONE_DIR}`, process.cwd());
@@ -187,15 +189,7 @@ async function configureProject() {
             throw error;
         }
 
-        const spinnerInstall = ora('Installing dependencies for the npx script...').start();
-        try {
-            shell('npm install', process.cwd());
-            spinnerInstall.succeed('Dependencies for the npx script installed successfully!');
-        } catch (error) {
-            spinnerInstall.fail('Failed to install dependencies for the npx script.');
-            throw error;
-        }
-
+        //
         if (fs.existsSync(CONFIG_FILE)) {
 
             const selectedPluginSlugs = storedConfig.recommendedPlugins.filter(plugin => answers.plugins.includes(plugin.name)).map(plugin => `'${plugin.slug}'`);
@@ -235,15 +229,17 @@ async function configureProject() {
             }
         }
 
-        const spinnerInstall2 = ora('Installing project dependencies...').start();
+        // Install dependencies
+        const spinnerInstall = ora('Installing project dependencies...').start();
         try {
             shell('npm install', CLONE_DIR);
-            spinnerInstall2.succeed('Project dependencies installed successfully!');
+            spinnerInstall.succeed('Project dependencies installed successfully!');
         } catch (error) {
-            spinnerInstall2.fail('Failed to install project dependencies.');
+            spinnerInstall.fail('Failed to install project dependencies.');
             throw error;
         }
 
+        // Install WordPress
         const spinnerWpInstall = ora('Installing WordPress...').start();
         try {
             shell('npm run wpinstall', CLONE_DIR);
@@ -253,6 +249,26 @@ async function configureProject() {
             throw error;
         }
 
+
+        // create a new git repository
+        const spinnerGitInit = ora('Initializing a new git repository...').start();
+        try {
+
+            // remove the .git directory from the cloned repository
+            if (fs.existsSync(path.join(CLONE_DIR, '.git'))) {
+                fs.rmSync(path.join(CLONE_DIR, '.git'), { recursive: true });
+            }
+
+            // initialize a new git repository
+            shell('git init', CLONE_DIR);
+            spinnerGitInit.succeed('Git repository initialized successfully!');
+        } catch (error) {
+            spinnerGitInit.fail('Failed to initialize a new git repository.');
+            throw error;
+        }
+
+
+        console.log('\n----------------------------------------');
         console.log('\n🎉 ' + chalk.greenBright('Your WordPress project has been successfully set up and is ready to go!'));
         console.log(chalk.cyanBright('\nTo start the development server, navigate to your project directory:'));
         console.log(chalk.yellowBright(`>> cd ${targetDirArg}\n`));
